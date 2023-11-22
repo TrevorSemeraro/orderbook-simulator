@@ -1,0 +1,36 @@
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:45: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 0, i] = len(df_at_queue[isLimitOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:46: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 1, i] = len(df_at_queue[isMarketOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:47: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 2, i] = len(df_at_queue[isCancelOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:53: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("L", len(df_at_queue[isLimitOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:54: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("M", len(df_at_queue[isMarketOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:55: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("C", len(df_at_queue[isCancelOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:45: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 0, i] = len(df_at_queue[isLimitOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:46: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 1, i] = len(df_at_queue[isMarketOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:47: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 2, i] = len(df_at_queue[isCancelOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:53: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("L", len(df_at_queue[isLimitOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:54: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("M", len(df_at_queue[isMarketOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:55: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("C", len(df_at_queue[isCancelOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:45: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 0, i] = len(df_at_queue[isLimitOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:46: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 1, i] = len(df_at_queue[isMarketOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:47: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  lambdas[depth_level, 2, i] = len(df_at_queue[isCancelOrder]) / denominator
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:53: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("L", len(df_at_queue[isLimitOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:54: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("M", len(df_at_queue[isMarketOrder]))
+C:\Users\trevo\AppData\Local\Temp\ipykernel_16260\2842553338.py:55: UserWarning: Boolean Series key will be reindexed to match DataFrame index.
+  print("C", len(df_at_queue[isCancelOrder]))
