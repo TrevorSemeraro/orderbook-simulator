@@ -1,4 +1,4 @@
-from bintrees import FastAVLTree
+from ..bintrees.bintrees import FastAVLTree
 import pickle
 
 class OrderBook:
