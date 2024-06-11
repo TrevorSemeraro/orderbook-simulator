@@ -23,7 +23,7 @@ ORDER_TYPES = 3
 PRICE_TICK = 100
 NORMALIZED_QUEUE_MAX = 50
 
-prob_of_exec = Simulation(lambdas, length=5)
+prob_of_exec = Simulation(lambdas, length=20)
 prob_of_exec.run()
 
 # Orderbook dataframe
