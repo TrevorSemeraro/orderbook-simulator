@@ -1,75 +1,132 @@
 from enum import IntEnum
 import numpy as np
 import math
+import sys
+from typing import Callable
+from decimal import Decimal
+import random
 
-from simulate.orderbook.order_book import OrderBook
+from orderbook.order import Order
+
+sys.path.append('..')
+
+# relative imports
+from orderbook import OrderBook
 
 class OrderbookIndexes(IntEnum):
     Bid=0
     Ask=1
 
-class OrderbookTypes:
+class OrderbookTypes(IntEnum):
     Limit=0
     Market=1
     Cancel=2
 
 modifier = 0.1
-lambda_length = 100
+lambda_length = 50
 
 def generateRandomParticantId():
-    return np.random.randint(0, 1000000)
+    return np.random.randint(0, 1E3)
 
 class Simulation:
     """
     Simulations Birth Death Process of orderbook
     """
-    def __init__(self, process_rates, orderbook=None, depth=1, tick_size = 10, midprice = 99_995, length=100):
+    orderbook: OrderBook
+    def __init__(
+            self, 
+            process_rates,
+            lambda_markers=None, 
+            orderbook=None, 
+            depth:int=1, 
+            tick_size:int= 10, 
+            midprice:int=99_995, 
+            length:int=100, 
+            participant_id=0,
+            initial_bid_quantity:int=5,
+            initial_ask_quantity:int=5,
+            verbose= False
+        ):
         self.process_rates = process_rates
-        
+        self.lambda_markers = lambda_markers
         self.tick_size = tick_size
-        
         self.midprice = midprice
         self.spread = 0
+        self.verbose = verbose
+        
+        self.bid_orders = []
+        self.ask_orders = []
 
         if(orderbook is None):
             orderbook = OrderBook()
+            
+            limit_orders = []
+            
+            for _ in range(0, initial_bid_quantity):
+                bid_order_id = generateRandomParticantId()
+                self.bid_orders.append(bid_order_id)
+                limit_orders.append({
+                    'type' : 'limit', 
+                    'side' : 'bid', 
+                    'quantity' : Decimal(1), 
+                    'price' : Decimal(midprice - (tick_size / 2)),
+                    'trade_id' : bid_order_id
+                })
+            for _ in range(0, initial_ask_quantity):
+                ask_order_id = generateRandomParticantId()
+                self.ask_orders.append(ask_order_id)
+                limit_orders.append({
+                    'type' : 'limit', 
+                    'side' : 'ask', 
+                    'quantity' : Decimal(1), 
+                    'price' : Decimal(midprice + (tick_size / 2)),
+                    'trade_id' : ask_order_id
+                })
+
+            # Add orders to order book
+            for order in limit_orders:
+                trades, order_id = orderbook.process_order(order, False, self.verbose)
+                self.process_trade(trades)
         
         self.orderbook = orderbook
-        self.orderbook.submit_order('lmt', 'ask', 5, 100_000, generateRandomParticantId())
-        self.orderbook.submit_order('lmt', 'bid', 5, 99_990, generateRandomParticantId())
-        self.orderbook_history = [self.orderbook.get_mkt_depth(3)]
-        
         self.midprices = [self.midprice]
-        
         self.time = 0.
         self.time_history = [0.]
-        
         self.depth = depth
         self.length = length
         
-    def next_event(self):
+        self.participant_id = participant_id
+        self.participant_volume = 0
+    
+    def calculate_lambda_markers(self, queue_size, percentile_33, percentile_66):
+        if(queue_size == 0):
+            return 0
+        elif(queue_size < percentile_33):
+            return 1
+        elif(queue_size < percentile_66):
+            return 2
+        else:
+            return 3
+
+    
+    def next_event(self) -> bool:
         """
         generate the waiting time and identity of the next event.
         outputs:
-        tau: float, waiting time before next event.
-        event: int, 0 means birth and 1 means death.
         """
-
-        best_bid_array = self.orderbook.get_mkt_depth(1)[1]
-        best_ask_array = self.orderbook.get_mkt_depth(1)[0]
         
+        best_ask_price = self.orderbook.get_best_ask()
+        best_bid_price = self.orderbook.get_best_bid()
+        if(self.verbose):
+            print("Best Prices | Ask:", best_ask_price, "Bid:", best_bid_price)
         
-        if len(best_ask_array) == 0 or len(best_bid_array) == 0:
-            print("Error: No best bid or best ask")
-            return ValueError("No best bid or best ask")
-        
-        [best_ask_price, ask_size] = best_ask_array[0]
+        ask_size = self.orderbook.get_volume_at_price('ask', best_ask_price)
         ask_size = min(math.ceil(ask_size), lambda_length - 1) 
                
-        [best_bid_price, bid_size] = best_bid_array[0]
+        bid_size = self.orderbook.get_volume_at_price('bid', best_bid_price)
         bid_size = min(math.ceil(bid_size), lambda_length - 1)
 
-        self.midprice = (best_ask_price + best_bid_price) / 2
+        self.midprice = (best_ask_price + best_bid_price) / Decimal(2)
         self.spread = best_ask_price - best_bid_price
 
         bid_reference_price, ask_reference_price = 0, 0
@@ -80,52 +137,158 @@ class Simulation:
         if(self.spread % self.tick_size == 0):
             # if the midprice is between two ticks that are enxt to each other
             # i.e. midprice = 100.050, tick_size = 0.01, bid = 100.00, ask = 100.01, spread = 0.01
-            bid_reference_price = self.midprice - self.tick_size / 2
-            ask_reference_price = self.midprice + self.tick_size / 2
+            bid_reference_price = self.midprice - self.tick_size / Decimal(2)
+            ask_reference_price = self.midprice + self.tick_size / Decimal(2)
         else:
             # If the midprice is between two ticks that are NOT next to each other
             # i.e. midprice = 100.01, tick_size = 0.01, bid = 100.00, ask = 100.02, spread = 0.02
             bid_reference_price = self.midprice
             ask_reference_price = self.midprice
         
-        # Gets the b/d rates at depth = 0
         for depth_index in range(0, self.depth):
-            bid_limit_intensity = self.process_rates[depth_index][OrderbookIndexes.Bid][OrderbookTypes.Limit][bid_size]
-            bid_market_intensity = self.process_rates[depth_index][OrderbookIndexes.Bid][OrderbookTypes.Market][bid_size]
-            bid_cancel_intensity = self.process_rates[depth_index][OrderbookIndexes.Bid][OrderbookTypes.Cancel][bid_size]
-            ask_limit_intensity = self.process_rates[depth_index][OrderbookIndexes.Ask][OrderbookTypes.Limit][ask_size]
-            ask_market_intensity = self.process_rates[depth_index][OrderbookIndexes.Ask][OrderbookTypes.Market][ask_size]
-            ask_cancel_intensity = self.process_rates[depth_index][OrderbookIndexes.Ask][OrderbookTypes.Cancel][ask_size]
+            ask_queue_size = min(math.ceil(ask_size), lambda_length - 1)
+            bid_queue_size = min(math.ceil(bid_size), lambda_length - 1)
+            
+            ask_queue_group = self.calculate_lambda_markers(ask_queue_size, self.lambda_markers['ask_queue_size_33_percentile'], self.lambda_markers['ask_queue_size_66_percentile'])
+            bid_queue_group = self.calculate_lambda_markers(bid_queue_size, self.lambda_markers['bid_queue_size_33_percentile'], self.lambda_markers['bid_queue_size_66_percentile'])
+            
+            # Limit, Market, Cancel
+            bid_intensities = [0, 0, 0]
+            ask_intensities = [0, 0, 0]
+            
+            for order_type in OrderbookTypes:
+                bid_intensities[order_type] = self.process_rates[OrderbookIndexes.Ask][ask_queue_group][OrderbookIndexes.Bid][order_type][bid_size]
+                ask_intensities[order_type] = self.process_rates[OrderbookIndexes.Bid][bid_queue_group][OrderbookIndexes.Ask][order_type][ask_size]
+            
+            # if(self.verbose):
+                # print(bid_size, bid_queue_size, bid_queue_group)
+                # print(ask_size, ask_queue_size, ask_queue_group)
+                # print("bid intensities:", bid_intensities)
+                # print("ask intensities:", ask_intensities)
+            
+            bid_order_amounts = [np.random.exponential(x) * modifier for x in bid_intensities]
+            ask_order_amounts = [np.random.exponential(x) * modifier for x in ask_intensities]
+            
+            bid_order_id = generateRandomParticantId()
+            ask_order_id = generateRandomParticantId()
+            
+            self.bid_orders.append(bid_order_id)
+            self.ask_orders.append(ask_order_id)
+            
+            orders = [
+                {
+                    'type' : 'limit', 
+                    'side' : 'bid', 
+                    'quantity' : Decimal(bid_order_amounts[0]), 
+                    'price' : bid_reference_price - 10 * depth_index,
+                    'trade_id' : bid_order_id
+                },
+                {
+                    'type' : 'limit', 
+                    'side' : 'ask', 
+                    'quantity' : Decimal(ask_order_amounts[0]), 
+                    'price' : ask_reference_price + 10 * depth_index,
+                    'trade_id' : ask_order_id
+                },
+                # our ask intensity is the amount that we want to market order on the buy side, therefore it is a market bid, and vice versa.
+                {
+                    'type' : 'market', 
+                    'side' : 'bid', 
+                    'quantity' : Decimal(ask_order_amounts[1]), 
+                    'trade_id' : generateRandomParticantId()
+                },
+                {
+                    'type' : 'market', 
+                    'side' : 'ask', 
+                    'quantity' : Decimal(bid_order_amounts[1]), 
+                    'trade_id' : generateRandomParticantId()
+                },
+            ]
+            
+            # Process orders
+            for order in orders:
+                if(order['quantity'] <= 0):
+                    continue
+                
+                trades, order_in_book = self.orderbook.process_order(order, False, self.verbose)
+                self.process_trade(trades)
+            
+            bid_amount_to_cancel = Decimal(bid_order_amounts[2])
+            bid_price = bid_reference_price - 10 * depth_index
+            self.cancelOrderbookQuantity('bid', bid_amount_to_cancel, bid_price)
+            
+            ask_amount_to_cancel = Decimal(ask_order_amounts[2])
+            ask_price = ask_reference_price + 10 * depth_index
+            self.cancelOrderbookQuantity('ask', ask_amount_to_cancel, ask_price)
 
-            print(f"Depth: {depth_index}, Bid: {bid_limit_intensity}, {bid_market_intensity}, {bid_cancel_intensity}")
 
-            tb_limit = np.random.exponential(bid_limit_intensity)* modifier
-            tb_market = np.random.exponential(bid_market_intensity)* modifier
-            tb_cancel = np.random.exponential(bid_cancel_intensity)* modifier
-            
-            ta_limit = np.random.exponential(ask_limit_intensity)* modifier
-            ta_market = np.random.exponential(ask_market_intensity)* modifier
-            ta_cancel = np.random.exponential(ask_cancel_intensity)* modifier
-                        
-            # use time delays rather than sizes (1/k_bid_cancel)
-            
-            if best_bid_array[0][1] + tb_limit < tb_market + tb_cancel:
-                print(f"{self.time}: tb_limit + bid_size: {tb_limit + best_bid_array[0][1]} < tb_market + tb_cancel {tb_market + tb_cancel}. ")
-            
-            self.orderbook.submit_order('lmt', 'bid', tb_limit, bid_reference_price - 10 * depth_index, generateRandomParticantId())
-            self.orderbook.submit_order('mkt', 'bid', tb_market, bid_reference_price - 10 * depth_index, generateRandomParticantId())
-            self.orderbook.submit_order('mkt', 'bid', tb_cancel, bid_reference_price - 10 * depth_index, generateRandomParticantId())
+        return False
+    
+    def cancelOrderbookQuantity(self, side: str, quantity: Decimal, price: Decimal):
+        """Cancels specified amount sitting on top of orderbook at random.
+        Returns true is there is enough volume to cancel
+        Returns false if there is not enough volume to process the request"""    
         
-            self.orderbook.submit_order('lmt', 'ask', ta_limit, ask_reference_price + 10 * depth_index, generateRandomParticantId())
-            self.orderbook.submit_order('mkt', 'ask', ta_market, ask_reference_price + 10 * depth_index, generateRandomParticantId())
-            self.orderbook.submit_order('mkt', 'ask', ta_cancel, ask_reference_price + 10 * depth_index, generateRandomParticantId())
-
-    def run(self):
-        print(f"Running Simulation. Real Tick Size={self.tick_size}. Midprice={self.midprice}. Spread={self.spread}")
-        for i in range(0, self.length):
-            self.next_event()
+        if(self.verbose):
+            print("Processing Order Cancellation:", side, quantity)
             
-            self.orderbook_history.append(self.orderbook.get_mkt_depth(3))    # record population size after event
+        while(quantity > 0):
+            orders : list[Order] = []
+        
+            if(side == 'ask'):
+                orders = self.orderbook.asks.get_orders_at_price(price)
+            else:
+                orders = self.orderbook.bids.get_orders_at_price(price)
+                
+            if(len(orders) == 0):
+                return False
+        
+            random_order : Order = random.choice(orders)  
+            order_id = random_order.order_id 
+            order_size = random_order.quantity
+            
+            if(order_size > quantity):
+                new_size = order_size - quantity
+                quantity = 0
+                
+                order_size = new_size
+                
+                self.orderbook.modify_order(order_id, {
+                    'type' : 'limit', 
+                    'side' : 'ask', 
+                    'quantity' : new_size, 
+                    'price' : random_order.price,
+                    'trade_id' : random_order.trade_id
+                })
+            else:
+                self.orderbook.cancel_order(side, order_id)
+                quantity -= order_size
+        return True
+    
+    def run(self, callback: Callable[[], bool]):
+        """ Run the simulation
+        callback: function to call after each event, return True to stop the simulation, takes in the simulation object
+        """
+        if(self.verbose):
+            print(f"Running Simulation. Real Tick Size={self.tick_size}. Midprice={self.midprice}. Spread={self.spread}")
+        
+        for i in range(0, self.length):
+            should_stop = callback()
+            
+            if(self.verbose):
+                print(f"Simulation Round {i} | Ending?={should_stop}")
+            
+            if(should_stop):
+                return
+            
+            self.next_event()
             
             self.time += 1
             self.time_history.append(self.time)    # record time of event
+    
+    def process_trade(self, trades):
+        for trade in trades:
+            if trade['party1'][0] == self.participant_id or trade['party2'][0] == self.participant_id:
+                # TODO: check if there is any volume left for the participant, call callbacks, run scripts, etc...
+                self.participant_volume += trade['quantity']
+                continue

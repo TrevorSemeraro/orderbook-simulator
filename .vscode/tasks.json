@@ -6,7 +6,7 @@
         {
             "label": "Probabilty of Execution",
             "type": "shell",
-            "command": "py poe.py",
+            "command": "python poe.py",
             "problemMatcher": [],
             "group": {
                 "kind": "build",

@@ -199,6 +199,14 @@ class OrderBookTest(unittest.TestCase):
 
             self.assertLess(list_avg_t / ob_avg_t, 5)
 
+    def test_order_cancellation(self):
+        ob = OrderBook()
+        order_id = ob.submit_order('lmt', 'ask', 2, 2, 1)
+
+        ob.cancel(order_id)
+
+        self.assertEqual(ob.ask_size, 0)
+        self.assertEqual(ob.total_ask_size, 0)
 
 if __name__ == '__main__':
     unittest.main()
