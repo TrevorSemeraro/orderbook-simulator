@@ -97,6 +97,7 @@ class Simulation:
         
         self.participant_id = participant_id
         self.participant_volume = 0
+        self.should_stop = False
     
     def calculate_lambda_markers(self, queue_size, percentile_33, percentile_66):
         if(queue_size == 0):
@@ -265,27 +266,40 @@ class Simulation:
                 quantity -= order_size
         return True
     
-    def run(self, callback: Callable[[], bool]):
+    def loop(self, callback: Callable[['Simulation'], bool]):
+        self.should_stop = callback(self)
+                
+        if(self.verbose):
+            print(f"Simulation Round {self.time} | Ending?={self.should_stop}")
+        
+        if(self.should_stop):
+            return
+        
+        self.next_event()
+        
+        self.time += 1
+        self.time_history.append(self.time)
+        
+        print(f"*** ORDERBOOK {self.time} ***")
+        print(self.orderbook)
+    
+    def run(self, callback: Callable[['Simulation'], bool]):
         """ Run the simulation
         callback: function to call after each event, return True to stop the simulation, takes in the simulation object
         """
         if(self.verbose):
             print(f"Running Simulation. Real Tick Size={self.tick_size}. Midprice={self.midprice}. Spread={self.spread}")
         
-        for i in range(0, self.length):
-            should_stop = callback()
+        if(self.length == -1):
+            while not self.should_stop:
+                self.loop(callback=callback)
             
-            if(self.verbose):
-                print(f"Simulation Round {i} | Ending?={should_stop}")
+        for _ in range(0, self.length):
+            if(self.should_stop):
+                break
             
-            if(should_stop):
-                return
+            self.loop(callback=callback)
             
-            self.next_event()
-            
-            self.time += 1
-            self.time_history.append(self.time)    # record time of event
-    
     def process_trade(self, trades):
         for trade in trades:
             if trade['party1'][0] == self.participant_id or trade['party2'][0] == self.participant_id:

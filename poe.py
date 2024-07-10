@@ -85,6 +85,8 @@ def main():
     # The probabilities do not seem to be printing correctly to sns heatmap
     # print(probabilities)
 
+    # colors =sns.color_palette("hls", 8)
+
     ax = sns.heatmap(probabilities, linewidth=0.5, cmap='coolwarm')
     ax.invert_yaxis()
     # ax.set_yticks(list(z_bin)[:len(z_bin)-1])
